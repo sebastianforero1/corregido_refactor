@@ -2,63 +2,50 @@ name: CI - SonarCloud (Python)
 
 on:
   push:
-    branches: [main]         # Corre en cualquier rama
+    branches: ['**']          # dispara en cualquier rama
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [main]
-  workflow_dispatch:         # Botón “Run workflow”
+    branches: ['**']
+  workflow_dispatch:           # permite correrlo manualmente
 
 jobs:
-  build-and-analizar:
+  build-and-analyze:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # pull-requests: write   # solo si quieres decoración en PRs
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0       # SonarCloud usa historia para algunas features
 
-      - name: Configurar Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Instalar dependencias
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.txt || pip install pytest pytest-cov
 
-      # 👇 Aseguramos ejecución de tests y creación del coverage.xml en la RAÍZ
-      - name: Ejecutar pruebas con cobertura (XML)
+      - name: Run tests with coverage (XML)
         run: |
           pytest -q --disable-warnings --maxfail=1 \
             --cov=src --cov-branch \
             --cov-report=xml:coverage.xml
-          test -f coverage.xml && echo "coverage.xml OK" || (echo "NO coverage.xml" && exit 1)
-
-      # 👇 Inspecciones útiles en logs (borralas luego si quieres)
-      - name: Mostrar árbol y primeras líneas del reporte
-        run: |
-          ls -lah
-          python - << 'PY'
-import xml.etree.ElementTree as ET
-root = ET.parse('coverage.xml').getroot()
-print("== cobertura: root tag:", root.tag)
-print("== muestras de rutas:")
-for pkg in root.findall(".//packages/package"):
-    for cls in pkg.findall("classes/class"):
-        print("file:", cls.attrib.get("filename"))
-        break
-    break
-PY
+          test -f coverage.xml || (echo "NO coverage.xml"; exit 1)
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2.2.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # opcional para PRs
         with:
           args: >
-            -Dsonar.projectKey=sonar-project.properties
+            -Dsonar.projectKey=sebastianforero1_corregido_refactor
             -Dsonar.organization=sebastianforero1
             -Dsonar.python.version=3.11
             -Dsonar.sources=src

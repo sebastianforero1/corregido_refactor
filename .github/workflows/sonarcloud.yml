@@ -2,10 +2,10 @@ name: CI - SonarCloud (Python)
 
 on:
   push:
-    branches: ['**']         # Corre en cualquier rama
+    branches: [main]         # Corre en cualquier rama
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    branches: ['**']
+    branches: [main]
   workflow_dispatch:         # Botón “Run workflow”
 
 jobs:
@@ -58,7 +58,7 @@ PY
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=sebastianforero1_corregido_refactor
+            -Dsonar.projectKey=sonar-project.properties
             -Dsonar.organization=sebastianforero1
             -Dsonar.python.version=3.11
             -Dsonar.sources=src

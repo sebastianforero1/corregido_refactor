@@ -17,14 +17,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Mostrar árbol (debug rápido)
-        run: |
-          pwd
-          ls -lah
-          echo "----"
-          ls -lah src || true
-          ls -lah tests || true
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -35,25 +27,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt || pip install pytest pytest-cov
 
-      # 👇 Clave: PYTHONPATH apunta a la raíz del repo para que 'from src...' funcione
+      # Clave: PYTHONPATH a la raíz del repo para que 'from src...' funcione
       - name: Run tests with coverage (XML)
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          python -c "import sys, os; print('CWD=', os.getcwd()); print('PYTHONPATH OK?', '${{ github.workspace }}' in sys.path)"
-          # sanity import
-          python -c "import src, src.calculadora, src.utilidades; print('import src OK')"
           pytest -q --disable-warnings --maxfail=1 \
             --cov=src --cov-branch \
             --cov-report=xml:coverage.xml \
             --cov-config=.coveragerc
-          test -f coverage.xml || (echo 'NO coverage.xml'; exit 1)
-          python - << 'PY'
-import xml.etree.ElementTree as ET
-r = ET.parse('coverage.xml').getroot()
-files = [c.get('filename') for c in r.findall(".//classes/class")]
-print("Ejemplos en coverage.xml:", files[:5])
-PY
+          test -f coverage.xml || (echo "NO coverage.xml"; exit 1)
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2.2.0

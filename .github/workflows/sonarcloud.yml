@@ -2,10 +2,10 @@ name: CI - SonarCloud (Python)
 
 on:
   push:
-    branches: ['**']
+    branches: ['**']          # corre en cualquier rama
   pull_request:
     branches: ['**']
-  workflow_dispatch:
+  workflow_dispatch:           # botón "Run workflow"
 
 jobs:
   build-and-analyze:
@@ -17,52 +17,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Locate project root (folder that contains src/ and tests/)
-        id: locate
-        run: |
-          set -e
-          if [ -d "src" ] && [ -d "tests" ]; then
-            echo "projroot=." >> $GITHUB_OUTPUT
-          elif [ -d "corregido_refactor/src" ] && [ -d "corregido_refactor/tests" ]; then
-            echo "projroot=corregido_refactor" >> $GITHUB_OUTPUT
-          elif [ -d "inicial_defectuoso/src" ] && [ -d "inicial_defectuoso/tests" ]; then
-            echo "projroot=inicial_defectuoso" >> $GITHUB_OUTPUT
-          else
-            echo "No se encontró carpeta con src/ y tests/"; ls -lah; exit 1
-          fi
-          echo "Usando PROJROOT=$(cat $GITHUB_OUTPUT | sed -n 's/projroot=\(.*\)/\1/p')"
-
-      - name: Show tree (debug)
-        run: |
-          echo "PROJROOT=${{ steps.locate.outputs.projroot }}"
-          ls -R
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install deps
-        working-directory: ${{ steps.locate.outputs.projroot }}
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install pytest pytest-cov; fi
+          pip install -r requirements.txt || pip install pytest pytest-cov
 
       - name: Run tests with coverage (XML)
-        working-directory: ${{ steps.locate.outputs.projroot }}
         env:
-          PYTHONPATH: ${{ github.workspace }}/${{ steps.locate.outputs.projroot }}
+          # Si tu src/ y tests/ NO están en la raíz, ajusta estas rutas o mueve carpetas a la raíz.
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           pytest -q --disable-warnings --maxfail=1 \
             --cov=src --cov-branch \
             --cov-report=xml:coverage.xml
           test -f coverage.xml || (echo "NO coverage.xml"; exit 1)
-          python - << 'PY'
-import xml.etree.ElementTree as ET
-root = ET.parse('coverage.xml').getroot()
-files = root.findall(".//classes/class")
-print("Ejemplos en coverage.xml:", [f.get('filename') for f in files[:5]])
-PY
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2.2.0
@@ -70,10 +43,10 @@ PY
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=sonar-project.properties
+            -Dsonar.projectKey=sebastianforero1_corregido_refactor
             -Dsonar.organization=sebastianforero1
             -Dsonar.python.version=3.11
-            -Dsonar.sources=${{ steps.locate.outputs.projroot }}/src
-            -Dsonar.tests=${{ steps.locate.outputs.projroot }}/tests
-            -Dsonar.python.coverage.reportPaths=${{ steps.locate.outputs.projroot }}/coverage.xml
+            -Dsonar.sources=src
+            -Dsonar.tests=tests
+            -Dsonar.python.coverage.reportPaths=coverage.xml
             -Dsonar.exclusions=**/__pycache__/**,**/*.pyc
